@@ -125,11 +125,14 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Определяем, что сумма недостаточна: только для режима тенге и если сумма равна 0
+    bool insufficient = isTengeToCurrency && (total != null && total == 0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Конвертер валют'),
         actions: [
-          if (isTengeToCurrency && roundedUpTotal != null)
+          if (!insufficient && isTengeToCurrency && roundedUpTotal != null)
             TextButton(
               onPressed: () {
                 if (roundedUpTotal != null && additionalAmountNeeded != null) {
@@ -184,21 +187,42 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             // Для поля курса не добавляем никаких форматтеров
             TextField(
               controller: rateController,
-              keyboardType: TextInputType.number,
               decoration: InputDecoration(labelText: 'Курс'),
             ),
             SizedBox(height: 20),
-            if (total != null) ...[
-              Text(
-                isTengeToCurrency
-                    ? 'Сумма: ${formatNumber(total)} \$'
-                    : 'Сумма в тенге: ${formatNumber(total)} тг',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              if (cashBack != null)
-                Text('Сдача в тенге: ${formatNumber(cashBack)} тг',
-                    style: TextStyle(fontSize: 20)),
-            ],
+            if (total != null)
+              insufficient
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Center(
+                        child: Text(
+                          'Суммма не хватает. НЕ можем дат тенге/валюту',
+                          style: TextStyle(
+                            fontSize: 25,
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isTengeToCurrency
+                              ? 'Сумма: ${formatNumber(total)} \$'
+                              : 'Сумма в тенге: ${formatNumber(total)} тг',
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        if (cashBack != null)
+                          Text(
+                            'Сдача в тенге: ${formatNumber(cashBack)} тг',
+                            style: TextStyle(fontSize: 20),
+                          ),
+                      ],
+                    ),
           ],
         ),
       ),
