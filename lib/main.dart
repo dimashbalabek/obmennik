@@ -5,8 +5,6 @@ import 'package:untitled1/rounded_sreen.dart';
 
 /// Formatter для поля суммы в тенге, который визуально разбивает число на группы по 3 цифры
 /// (например, 1234 -> "1 234", 12345 -> "12 345", 1234567 -> "1 234 567").
-/// При этом в реальном значении (controller.text) остаются только цифры, т.к. при расчётах
-/// пробелы удаляются с помощью replaceAll(" ", "").
 class TengeInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -26,7 +24,6 @@ class TengeInputFormatter extends TextInputFormatter {
     // Форматирование по группам по 3 цифры с конца
     StringBuffer buffer = StringBuffer();
     int offset = digits.length % 3;
-    // Если остаток равен 0, первая группа из 3 цифр
     if (offset == 0) offset = 3;
     buffer.write(digits.substring(0, offset));
     for (int i = offset; i < digits.length; i += 3) {
@@ -49,13 +46,17 @@ class TengeInputFormatter extends TextInputFormatter {
   }
 }
 
-class CurrencyConverterScreen extends StatefulWidget {
+/// Основной виджет с переключением между страницами.
+class MainScreen extends StatefulWidget {
   @override
-  _CurrencyConverterScreenState createState() =>
-      _CurrencyConverterScreenState();
+  _MainScreenState createState() => _MainScreenState();
 }
 
-class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
+class _MainScreenState extends State<MainScreen> {
+  // Индекс выбранной страницы: 0 — Конвертер валют, 1 — Другая страница.
+  int _currentIndex = 0;
+
+  // --- Логика конвертера (применяется только на странице 0) ---
   final TextEditingController amountController = TextEditingController();
   final TextEditingController rateController = TextEditingController();
   bool isTengeToCurrency = true;
@@ -94,7 +95,6 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       });
       return;
     }
-
     calculate(amount, rate);
   }
 
@@ -122,36 +122,13 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   String formatNumber(double? value) {
     return value == null ? "0" : numberFormat.format(value);
   }
+  // --- Конец логики конвертера ---
 
-  @override
-  Widget build(BuildContext context) {
-    // Определяем, что сумма недостаточна: только для режима тенге и если сумма равна 0
+  /// Страница конвертера валют.
+  Widget buildConversionPage() {
     bool insufficient = isTengeToCurrency && (total != null && total == 0);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Конвертер валют'),
-        actions: [
-          if (!insufficient && isTengeToCurrency && roundedUpTotal != null)
-            TextButton(
-              onPressed: () {
-                if (roundedUpTotal != null && additionalAmountNeeded != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RoundUpScreen(
-                        roundedUpTotal: roundedUpTotal!,
-                        additionalAmountNeeded: additionalAmountNeeded!,
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: Text('Поднять до ${formatNumber(roundedUpTotal)}'),
-            ),
-        ],
-      ),
-      body: Padding(
+    return SingleChildScrollView(
+      child: Padding(
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,7 +161,6 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     isTengeToCurrency ? 'Сумма в тенге' : 'Сумма в валюте',
               ),
             ),
-            // Для поля курса не добавляем никаких форматтеров
             TextField(
               controller: rateController,
               decoration: InputDecoration(labelText: 'Курс'),
@@ -193,15 +169,14 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             if (total != null)
               insufficient
                   ? Padding(
-                      padding: const EdgeInsets.only(top: 20),
+                      padding: EdgeInsets.only(top: 20),
                       child: Center(
                         child: Text(
                           'Суммма не хватает. НЕ можем дат тенге/валюту',
                           style: TextStyle(
-                            fontSize: 25,
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
+                              fontSize: 25,
+                              color: Colors.red,
+                              fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -228,9 +203,131 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       ),
     );
   }
+
+  /// Заглушка для другой страницы.
+  Widget buildOtherPage() {
+    return Center(
+      child: Text(
+        'Другая страница',
+        style: TextStyle(fontSize: 24),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Определяем, что сумма недостаточна — только для режима тенге.
+    bool insufficient = isTengeToCurrency && (total != null && total == 0);
+    bool isPhone = MediaQuery.of(context).size.width < 600;
+
+    // Если условия конвертации выполнены, формируем кнопку "Поднять до ..."
+    Widget? liftUpButton;
+    if (_currentIndex == 0 &&
+        !insufficient &&
+        isTengeToCurrency &&
+        roundedUpTotal != null) {
+      liftUpButton = TextButton(
+        onPressed: () {
+          if (roundedUpTotal != null && additionalAmountNeeded != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => RoundUpScreen(
+                  roundedUpTotal: roundedUpTotal!,
+                  additionalAmountNeeded: additionalAmountNeeded!,
+                ),
+              ),
+            );
+          }
+        },
+        child: Text('Поднять до ${formatNumber(roundedUpTotal)}'),
+      );
+    }
+
+    // Для телефона используем нижнюю навигационную панель и плавающую кнопку для "Поднять до..."
+    if (isPhone) {
+      return Scaffold(
+        // Для телефонов AppBar отсутствует, чтобы не было смещения заголовка
+        appBar: null,
+        body: _currentIndex == 0 ? buildConversionPage() : buildOtherPage(),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          items: [
+            BottomNavigationBarItem(
+                icon: Icon(Icons.currency_exchange), label: 'Конвертер валют'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard), label: 'Другая страница'),
+          ],
+          onTap: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+        ),
+        floatingActionButton: _currentIndex == 0 && liftUpButton != null
+            ? FloatingActionButton.extended(
+                onPressed: () {
+                  if (roundedUpTotal != null &&
+                      additionalAmountNeeded != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RoundUpScreen(
+                          roundedUpTotal: roundedUpTotal!,
+                          additionalAmountNeeded: additionalAmountNeeded!,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                label: Text('Поднять до ${formatNumber(roundedUpTotal)}'),
+              )
+            : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      );
+    } else {
+      // Для широких экранов используем AppBar с переключателями между страницами и кнопкой "Поднять до..."
+      return Scaffold(
+        appBar: AppBar(
+          title:
+              Text(_currentIndex == 0 ? 'Конвертер валют' : 'Другая страница'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 0;
+                });
+              },
+              child: Text(
+                'Конвертер валют',
+                style: TextStyle(
+                    color: _currentIndex == 0 ? Colors.white : Colors.white70),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _currentIndex = 1;
+                });
+              },
+              child: Text(
+                'Другая страница',
+                style: TextStyle(
+                    color: _currentIndex == 1 ? Colors.white : Colors.white70),
+              ),
+            ),
+            if (liftUpButton != null) liftUpButton,
+          ],
+        ),
+        body: _currentIndex == 0 ? buildConversionPage() : buildOtherPage(),
+      );
+    }
+  }
 }
 
 void main() {
   runApp(MaterialApp(
-      debugShowCheckedModeBanner: false, home: CurrencyConverterScreen()));
+    debugShowCheckedModeBanner: false,
+    home: MainScreen(),
+  ));
 }
