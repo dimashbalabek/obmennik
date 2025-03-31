@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:untitled1/curse.dart';
 import 'package:untitled1/rounded_sreen.dart';
 
 /// Formatter для поля суммы в тенге, который визуально разбивает число на группы по 3 цифры
@@ -53,10 +54,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // Индекс выбранной страницы: 0 — Конвертер валют, 1 — Другая страница.
+  // Индекс выбранной страницы: 0 — Конвертер валют, 1 — Курсы.
   int _currentIndex = 0;
 
-  // --- Логика конвертера (применяется только на странице 0) ---
   final TextEditingController amountController = TextEditingController();
   final TextEditingController rateController = TextEditingController();
   bool isTengeToCurrency = true;
@@ -80,7 +80,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void validateAndCalculate() {
-    // Перед расчетом заменяем запятую на точку, затем убираем пробелы
     String amountText =
         amountController.text.replaceAll(",", ".").replaceAll(" ", "");
     String rateText =
@@ -122,9 +121,7 @@ class _MainScreenState extends State<MainScreen> {
   String formatNumber(double? value) {
     return value == null ? "0" : numberFormat.format(value);
   }
-  // --- Конец логики конвертера ---
 
-  /// Страница конвертера валют.
   Widget buildConversionPage() {
     bool insufficient = isTengeToCurrency && (total != null && total == 0);
     return SingleChildScrollView(
@@ -204,21 +201,13 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  /// Заглушка для другой страницы.
   Widget buildOtherPage() {
-    return Center(
-      child: Text(
-        'Другая страница',
-        style: TextStyle(fontSize: 24),
-      ),
-    );
+    return CurrencyDashboard();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Определяем, что сумма недостаточна — только для режима тенге.
     bool insufficient = isTengeToCurrency && (total != null && total == 0);
-    bool isPhone = MediaQuery.of(context).size.width < 600;
 
     // Если условия конвертации выполнены, формируем кнопку "Поднять до ..."
     Widget? liftUpButton;
@@ -244,84 +233,71 @@ class _MainScreenState extends State<MainScreen> {
       );
     }
 
-    // Для телефона используем нижнюю навигационную панель и плавающую кнопку для "Поднять до..."
-    if (isPhone) {
-      return Scaffold(
-        // Для телефонов AppBar отсутствует, чтобы не было смещения заголовка
-        appBar: null,
-        body: _currentIndex == 0 ? buildConversionPage() : buildOtherPage(),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          items: [
-            BottomNavigationBarItem(
-                icon: Icon(Icons.currency_exchange), label: 'Конвертер валют3'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard), label: 'Другая страница'),
-          ],
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-        ),
-        floatingActionButton: _currentIndex == 0 && liftUpButton != null
-            ? FloatingActionButton.extended(
-                onPressed: () {
-                  if (roundedUpTotal != null &&
-                      additionalAmountNeeded != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => RoundUpScreen(
-                          roundedUpTotal: roundedUpTotal!,
-                          additionalAmountNeeded: additionalAmountNeeded!,
-                        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_currentIndex == 0 ? 'Конвертер валют' : 'Курсы'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _currentIndex = 0;
+              });
+            },
+            child: Text(
+              'Конвертер валют',
+              style: TextStyle(
+                  color: _currentIndex == 0 ? Colors.white : Colors.white70),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _currentIndex = 1;
+              });
+            },
+            child: Text(
+              'Курсы',
+              style: TextStyle(
+                  color: _currentIndex == 1 ? Colors.white : Colors.white70),
+            ),
+          ),
+          if (liftUpButton != null) liftUpButton,
+        ],
+      ),
+      body: _currentIndex == 0 ? buildConversionPage() : buildOtherPage(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        items: [
+          BottomNavigationBarItem(
+              icon: Icon(Icons.currency_exchange), label: 'Конвертер валют'),
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Курсы'),
+        ],
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+      ),
+      floatingActionButton: _currentIndex == 0 && liftUpButton != null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                if (roundedUpTotal != null && additionalAmountNeeded != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RoundUpScreen(
+                        roundedUpTotal: roundedUpTotal!,
+                        additionalAmountNeeded: additionalAmountNeeded!,
                       ),
-                    );
-                  }
-                },
-                label: Text('Поднять до ${formatNumber(roundedUpTotal)}'),
-              )
-            : null,
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      );
-    } else {
-      // Для широких экранов используем AppBar с переключателями между страницами и кнопкой "Поднять до..."
-      return Scaffold(
-        appBar: AppBar(
-          title:
-              Text(_currentIndex == 0 ? 'Конвертер валют' : 'Другая страница'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _currentIndex = 0;
-                });
+                    ),
+                  );
+                }
               },
-              child: Text(
-                'Конвертер валют3',
-                style: TextStyle(
-                    color: _currentIndex == 0 ? Colors.white : Colors.white70),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _currentIndex = 1;
-                });
-              },
-              child: Text(
-                'Другая страница',
-                style: TextStyle(
-                    color: _currentIndex == 1 ? Colors.white : Colors.white70),
-              ),
-            ),
-            if (liftUpButton != null) liftUpButton,
-          ],
-        ),
-        body: _currentIndex == 0 ? buildConversionPage() : buildOtherPage(),
-      );
-    }
+              label: Text('Поднять до ${formatNumber(roundedUpTotal)}'),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
   }
 }
 
