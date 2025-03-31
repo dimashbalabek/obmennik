@@ -254,7 +254,7 @@ class _MainScreenState extends State<MainScreen> {
           currentIndex: _currentIndex,
           items: [
             BottomNavigationBarItem(
-                icon: Icon(Icons.currency_exchange), label: 'Конвертер валют'),
+                icon: Icon(Icons.currency_exchange), label: 'Конвертер валют3'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.dashboard), label: 'Другая страница'),
           ],
@@ -299,7 +299,7 @@ class _MainScreenState extends State<MainScreen> {
                 });
               },
               child: Text(
-                'Конвертер валют',
+                'Конвертер валют3',
                 style: TextStyle(
                     color: _currentIndex == 0 ? Colors.white : Colors.white70),
               ),
