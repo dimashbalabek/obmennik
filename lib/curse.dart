@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
 
 // Модель валютного курса
@@ -28,56 +29,58 @@ class _CurrencyDashboardState extends State<CurrencyDashboard> {
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    fetchCurrencyRates();
   }
 
-  // Функция для получения и парсинга данных
-  Future<void> _fetchData() async {
-    try {
-      final url = Uri.parse("https://mig.kz/");
-      final response = await http.get(url);
-      dom.Document html = dom.Document.html(response.body);
+  // Новая функция для получения и парсинга данных
+  Future<void> fetchCurrencyRates() async {
+    final url = Uri.parse(
+        "https://frosty-hat-108d.dimashbalabek0.workers.dev/?target=https://mig.kz/");
+    final response = await http.get(url);
 
-      final table = html.querySelector('table');
-      if (table == null) {
-        debugPrint("Таблица не найдена!");
-        return;
+    if (response.statusCode == 200) {
+      var document = html.parse(response.body);
+      // Получаем весь текст из body
+      var currencyData = document.body?.text ?? "";
+
+      RegExp regExp = RegExp(
+        r"(\d+\.\d+)\s*USD\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*EUR\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*RUB\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*KGS\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*GBP\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*CNY\s*(\d+\.\d+)\s*"
+        r"(\d+\.\d+)\s*GOLD\s*(\d+\.\d+)",
+        multiLine: true,
+      );
+
+      var match = regExp.firstMatch(currencyData);
+      if (match != null) {
+        List<CurrencyRate> newRates = [];
+
+        newRates.add(CurrencyRate(
+            currency: "USD", buy: match.group(1)!, sell: match.group(2)!));
+        newRates.add(CurrencyRate(
+            currency: "EUR", buy: match.group(3)!, sell: match.group(4)!));
+        newRates.add(CurrencyRate(
+            currency: "RUB", buy: match.group(5)!, sell: match.group(6)!));
+        newRates.add(CurrencyRate(
+            currency: "KGS", buy: match.group(7)!, sell: match.group(8)!));
+        newRates.add(CurrencyRate(
+            currency: "GBP", buy: match.group(9)!, sell: match.group(10)!));
+        newRates.add(CurrencyRate(
+            currency: "CNY", buy: match.group(11)!, sell: match.group(12)!));
+        newRates.add(CurrencyRate(
+            currency: "GOLD", buy: match.group(13)!, sell: match.group(14)!));
+
+        setState(() {
+          _rates = newRates;
+        });
+      } else {
+        debugPrint("Не удалось найти курсы валют.");
       }
-      final rows = table.querySelectorAll('tr');
-      List<CurrencyRate> tempRates = [];
-
-      for (var row in rows) {
-        final buyTd = row.querySelector('td.buy');
-        final currencyTd = row.querySelector('td.currency');
-        final sellTd = row.querySelector('td.sell');
-
-        if (buyTd != null && currencyTd != null && sellTd != null) {
-          final buyValue = buyTd.text.trim();
-          final currencyValue = currencyTd.text.trim();
-          final sellValue = sellTd.text.trim();
-
-          // Исключаем ненужные валюты
-          if (currencyValue == 'KGS' ||
-              currencyValue == 'GBP' ||
-              currencyValue == 'GOLD') {
-            continue;
-          }
-
-          tempRates.add(
-            CurrencyRate(
-              currency: currencyValue,
-              buy: buyValue,
-              sell: sellValue,
-            ),
-          );
-        }
-      }
-
-      setState(() {
-        _rates = tempRates;
-      });
-    } catch (e) {
-      debugPrint("Ошибка при получении данных: $e");
+    } else {
+      debugPrint("Ошибка запроса: ${response.statusCode}");
     }
   }
 
@@ -99,14 +102,14 @@ class _CurrencyDashboardState extends State<CurrencyDashboard> {
           ),
         ),
         child: RefreshIndicator(
-          onRefresh: _fetchData,
+          onRefresh: fetchCurrencyRates,
           color: mainColor,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
-              // Уменьшенная высота SliverAppBar до 100,
+              // SliverAppBar с уменьшенной высотой 100
               SliverAppBar(
                 backgroundColor: Colors.transparent,
                 expandedHeight: 100,
@@ -126,7 +129,6 @@ class _CurrencyDashboardState extends State<CurrencyDashboard> {
                   ),
                 ),
               ),
-
               _rates.isEmpty
                   ? SliverFillRemaining(
                       child: Center(
@@ -167,26 +169,19 @@ class _CurrencyDashboardState extends State<CurrencyDashboard> {
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: Row(
                                     children: [
-                                      // Icon(Icons.arrow_upward,
-                                      //     color: Colors.green.shade700,
-                                      //     size: 20),
                                       const SizedBox(width: 4),
                                       Text(
                                         rate.buy,
                                         style: TextStyle(
                                           fontSize: 16,
-                                          // color: Colors.green.shade700,
                                         ),
                                       ),
                                       const SizedBox(width: 16),
-                                      // Icon(Icons.arrow_downward,
-                                      //     color: Colors.red.shade700, size: 20),
                                       const SizedBox(width: 4),
                                       Text(
                                         rate.sell,
                                         style: TextStyle(
                                           fontSize: 16,
-                                          // color: Colors.red.shade700,
                                         ),
                                       ),
                                     ],
